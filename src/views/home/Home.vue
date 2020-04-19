@@ -3,15 +3,28 @@
     <nav-bar class="home-nav">
       <div slot="center">购物街</div>
     </nav-bar>
-    <home-swiper :banners="banners" />
-    <recommend-view :recommends="recommends" />
-    <FeatureView></FeatureView>
     <tab-control
       class="tab-control"
       :titles="['流行', '新款', '精选']"
       @tabClick="tabClick"
-    ></tab-control>
-    <good-list :goods="showGoods" />
+      ref="tabControl1"
+      v-show="isTabFixed"
+    />
+    <scroll
+      class="content"
+      ref="scroll"
+      :probe-type="3"
+      @scroll="contentScroll"
+      :pull-up-load="true"
+      @pullingUp="loadMore"
+    >
+      <home-swiper :banners="banners" @swiperImageLoad="swiperImageLoad" />
+      <recommend-view :recommends="recommends" />
+      <FeatureView></FeatureView>
+      <tab-control :titles="['流行', '新款', '精选']" @tabClick="tabClick" ref="tabControl2" />
+      <good-list :goods="showGoods" />
+    </scroll>
+    <BackTop @click.native="backClick" v-show="isShowBcakTop" />
   </div>
 </template>
 
@@ -23,8 +36,11 @@ import FeatureView from "@/views/home/childComps/FeatureView";
 import NavBar from "@/components/common/navbar/NavBar";
 import TabControl from "@/components/content/tabControl/TabControl";
 import GoodList from "@/components/content/goods/GoodList";
+import Scroll from "@/components/common/scroll/Scroll";
+import BackTop from "@/components/content/backTop/BackTop";
 
 import { getHomeMultidata, getHomeGoods } from "@/network/home";
+import { debounce } from "@/common/utils";
 
 export default {
   name: "Home",
@@ -34,7 +50,9 @@ export default {
     FeatureView,
     NavBar,
     TabControl,
-    GoodList
+    GoodList,
+    Scroll,
+    BackTop
   },
   data() {
     return {
@@ -45,7 +63,10 @@ export default {
         new: { page: 0, list: [] },
         sell: { page: 0, list: [] }
       },
-      currentType: "pop"
+      currentType: "pop",
+      isShowBcakTop: false,
+      tabOffsetTop: 0,
+      isTabFixed: false
     };
   },
   computed: {
@@ -61,8 +82,17 @@ export default {
     this.getHomeGoods("new");
     this.getHomeGoods("sell");
   },
+  mounted() {
+    // 1、图片加载完成的事件监听
+    const refresh = debounce(this.$refs.scroll.refresh, 200);
+    this.$bus.$on("itemImageLoad", () => {
+      refresh();
+    });
+    // 2、获取tabControl的offsetTop
+    // 所有组件都有一个属性$el：用于获取组件中的元素
+  },
   methods: {
-    /**时间监听相关方法 */
+    /**事件监听相关方法 */
     tabClick(index) {
       switch (index) {
         case 0:
@@ -74,11 +104,30 @@ export default {
         case 2:
           this.currentType = "sell";
       }
+      this.$refs.tabControl1.currentIndex = index;
+      this.$refs.tabControl2.currentIndex = index;
+    },
+    backClick() {
+      this.$refs.scroll.scrollTo(0, 0);
+    },
+    contentScroll(position) {
+      // 1.判断BackTop是否显示
+      this.isShowBcakTop = -position.y > 1000;
+      // 2.判断tabControl是否吸顶
+      this.isTabFixed = -position.y > this.tabOffsetTop;
+    },
+    // 从scroll组件转移到home页面显示
+    loadMore() {
+      // console.log("11");
+      this.getHomeGoods(this.currentType);
+    },
+    swiperImageLoad() {
+      this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
+      // console.log(this.$refs.tabControl.$el.offsetTop);
     },
     /**网络请求相关方法 */
     getHomeMultidata() {
       getHomeMultidata().then(res => {
-        // this.result = res;
         this.banners = res.data.banner.list;
         this.recommends = res.data.recommend.list;
       });
@@ -88,7 +137,8 @@ export default {
       getHomeGoods(type, page).then(res => {
         this.goods[type].list.push(...res.data.list);
         this.goods[type].page += 1;
-        console.log(res);
+
+        this.$refs.scroll.finishPullUp();
       });
     }
   }
@@ -97,20 +147,42 @@ export default {
 
 <style scoped>
 #home {
-  padding-top: 44px;
+  position: relative;
+  /* padding-top: 44px; */
+  height: 100vh;
 }
 .home-nav {
   background-color: var(--color-tint);
   color: #fff;
-  position: fixed;
+  /* position: fixed;
   left: 0;
   right: 0;
   top: 0;
-  z-index: 9;
+  z-index: 9; */
+}
+
+.content {
+  position: absolute;
+  top: 44px;
+  bottom: 49px;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+.fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 44px;
 }
 .tab-control {
-  position: sticky;
-  top: 44px;
+  position: relative;
   z-index: 9;
 }
+/* .content {
+  height: calc(100% - 93px);
+  overflow: hidden;
+  margin-top: 44px;
+} */
 </style>
