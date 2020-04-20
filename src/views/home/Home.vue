@@ -85,9 +85,13 @@ export default {
   mounted() {
     // 1、图片加载完成的事件监听
     const refresh = debounce(this.$refs.scroll.refresh, 200);
-    this.$bus.$on("itemImageLoad", () => {
-      refresh();
-    });
+    this.$bus.$on(
+      "itemImageLoad",
+      () => {
+        refresh();
+      },
+      100
+    );
     // 2、获取tabControl的offsetTop
     // 所有组件都有一个属性$el：用于获取组件中的元素
   },

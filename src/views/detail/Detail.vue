@@ -1,12 +1,14 @@
 <template>
   <div id="detail">
-    <detail-nav-bar class="detail-nav" />
-    <scroll class="content" ref="scroll">
+    <detail-nav-bar class="detail-nav" @titleClick="titleClick" />
+    <scroll class="content" ref="scroll" :probe-type="3" @scroll="contentScroll">
       <detail-swiper :top-images="topImages" />
       <detail-base-info :goods="goods" />
       <detail-shop-info :shop="shop" />
       <detail-goods-info :detail-info="detailInfo" @imageLoad="imageLoad" />
-      <detail-param-info :param-info="paramInfo" />
+      <detail-param-info :param-info="paramInfo" ref="param" />
+      <detail-comment-info :comment-info="commentInfo" ref="comment" />
+      <good-list :goods="recommends" ref="recommend"></good-list>
     </scroll>
   </div>
 </template>
@@ -18,10 +20,18 @@ import DetailBaseInfo from "./childComps/DetailBaseInfo";
 import DetailShopInfo from "./childComps/DetailShopInfo";
 import DetailGoodsInfo from "./childComps/DetailGoodsInfo";
 import DetailParamInfo from "./childComps/DetailParamInfo";
+import DetailCommentInfo from "./childComps/DetailCommentInfo";
 
 import Scroll from "components/common/scroll/Scroll";
+import GoodList from "components/content/goods/GoodList";
 
-import { getDetail, Goods, Shop, GoodsParam } from "network/detail";
+import {
+  getDetail,
+  Goods,
+  Shop,
+  GoodsParam,
+  getRecommend
+} from "network/detail";
 
 export default {
   name: "Detail",
@@ -32,7 +42,9 @@ export default {
     DetailShopInfo,
     DetailGoodsInfo,
     DetailParamInfo,
-    Scroll
+    DetailCommentInfo,
+    Scroll,
+    GoodList
   },
   data() {
     return {
@@ -41,7 +53,10 @@ export default {
       goods: {},
       shop: {},
       detailInfo: {},
-      paramInfo: {}
+      paramInfo: {},
+      commentInfo: {},
+      recommends: [],
+      themeTopYs: []
     };
   },
   created() {
@@ -50,34 +65,56 @@ export default {
 
     // 2.根据iid请求详情数据
     getDetail(this.iid).then(res => {
-      // 1.获取顶部的图片轮播数据
-      console.log(res);
+      // 2.获取顶部的图片轮播数据
+      // console.log(res);
       const data = res.result;
       this.topImages = data.itemInfo.topImages;
 
-      // 2.获取商品信息
+      // 3.获取商品信息
       this.goods = new Goods(
         data.itemInfo,
         data.columns,
         data.shopInfo.services
       );
 
-      // 3.创建店铺信息的对象
+      // 4.创建店铺信息的对象
       this.shop = new Shop(data.shopInfo);
 
-      // 4.保存商品的详情数据
+      // 5.保存商品的详情数据
       this.detailInfo = data.detailInfo;
 
-      // 5.获取参数的信息
+      // 6.获取参数的信息
       this.paramInfo = new GoodsParam(
         data.itemParams.info,
         data.itemParams.rule
       );
+      // 7.取出评论的信息
+      if (data.rate.Crate !== 0) {
+        this.commentInfo = data.rate.list[0];
+      }
+    });
+
+    // 3.请求推荐数据
+    getRecommend().then(res => {
+      // console.log(res);
+      this.recommends = res.data.list;
     });
   },
   methods: {
     imageLoad() {
       this.$refs.scroll.refresh();
+      this.themeTopYs = [];
+      this.themeTopYs.push(0);
+      this.themeTopYs.push(this.$refs.param.$el.offsetTop - 44);
+      this.themeTopYs.push(this.$refs.comment.$el.offsetTop - 44);
+      this.themeTopYs.push(this.$refs.recommend.$el.offsetTop - 44);
+      console.log(this.themeTopYs);
+    },
+    titleClick(index) {
+      this.$refs.scroll.scrollTo(0, -this.themeTopYs[index], 200);
+    },
+    contentScroll(position) {
+      console.log(position);
     }
   }
 };
