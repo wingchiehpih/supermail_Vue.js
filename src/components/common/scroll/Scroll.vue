@@ -61,4 +61,10 @@ export default {
   }
 };
 </script>
+<style scoped>
+.wrapper {
+  /* 在未设置该属性详情页下栏可拖动 */
+  overflow: hidden;
+}
+</style>
 

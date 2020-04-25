@@ -1,7 +1,8 @@
 <template>
   <div id="detail">
-    <detail-nav-bar class="detail-nav" @titleClick="titleClick" />
+    <detail-nav-bar class="detail-nav" @titleClick="titleClick" ref="nav" />
     <scroll class="content" ref="scroll" :probe-type="3" @scroll="contentScroll">
+      <!-- 属性：topImages传入值top-image -->
       <detail-swiper :top-images="topImages" />
       <detail-base-info :goods="goods" />
       <detail-shop-info :shop="shop" />
@@ -10,6 +11,10 @@
       <detail-comment-info :comment-info="commentInfo" ref="comment" />
       <good-list :goods="recommends" ref="recommend"></good-list>
     </scroll>
+
+    <detail-bottom-bar @addCart="addToCart"></detail-bottom-bar>
+    <BackTop @click.native="backClick" v-show="isShowBcakTop" />
+    <!-- <toast :message="message" :show="show" /> -->
   </div>
 </template>
 
@@ -21,9 +26,14 @@ import DetailShopInfo from "./childComps/DetailShopInfo";
 import DetailGoodsInfo from "./childComps/DetailGoodsInfo";
 import DetailParamInfo from "./childComps/DetailParamInfo";
 import DetailCommentInfo from "./childComps/DetailCommentInfo";
+import DetailBottomBar from "./childComps/DetailBottomBar";
+import BackTop from "@/components/content/backTop/BackTop";
+import Toast from "@/components/common/toast/Toast";
 
 import Scroll from "components/common/scroll/Scroll";
 import GoodList from "components/content/goods/GoodList";
+
+import { mapActions } from "vuex";
 
 import {
   getDetail,
@@ -43,6 +53,9 @@ export default {
     DetailGoodsInfo,
     DetailParamInfo,
     DetailCommentInfo,
+    DetailBottomBar,
+    BackTop,
+    // Toast,
     Scroll,
     GoodList
   },
@@ -56,7 +69,12 @@ export default {
       paramInfo: {},
       commentInfo: {},
       recommends: [],
-      themeTopYs: []
+      themeTopYs: [],
+      currentIndex: 0,
+      isShowBcakTop: false
+      // Toast
+      // message: "",
+      // show: false
     };
   },
   created() {
@@ -101,6 +119,8 @@ export default {
     });
   },
   methods: {
+    // 映射
+    ...mapActions(["addCart"]),
     imageLoad() {
       this.$refs.scroll.refresh();
       this.themeTopYs = [];
@@ -114,7 +134,57 @@ export default {
       this.$refs.scroll.scrollTo(0, -this.themeTopYs[index], 200);
     },
     contentScroll(position) {
-      console.log(position);
+      const positionY = -position.y;
+      // console.log(position);
+      let length = this.themeTopYs.length;
+      for (let i = 0; i < length; i++) {
+        if (
+          this.currentIndex != i &&
+          ((i < length - 1 &&
+            positionY >= this.themeTopYs[i] &&
+            positionY < this.themeTopYs[i + 1]) ||
+            (i == length - 1 && positionY >= this.themeTopYs[i]))
+        ) {
+          this.currentIndex = i;
+          // console.log(this.currentIndex);
+          this.$refs.nav.currentIndex = this.currentIndex;
+        }
+      }
+      // 1.判断BackTop是否显示
+      this.isShowBcakTop = -position.y > 1000;
+      // 2.判断tabControl是否吸顶
+      this.isTabFixed = -position.y > this.tabOffsetTop;
+    },
+    backClick() {
+      this.$refs.scroll.scrollTo(0, 0);
+    },
+    addToCart() {
+      // console.log("```");
+      // 获取商品信息
+      const product = {};
+      product.image = this.topImages[0];
+      product.title = this.goods.title;
+      product.desc = this.goods.desc;
+      product.price = this.goods.realPrice;
+      product.iid = this.iid;
+      // 将商品添加到购物车
+      // mutations调用
+      // this.$store.commit("addCart", product);
+      // actions调用
+      // 通过mapActions进行映射
+      this.addCart(product).then(res => {
+        // this.show = true;
+        // this.message = res;
+        // setTimeout(() => {
+        //   this.show = false;
+        //   this.message = "";
+        // }, 1500);
+        this.$toast.show(res, 2000);
+        // console.log(this.$toast);
+      });
+      // this.$store.dispatch("addCart", product).then(res => {
+      //   console.log(res);
+      // });
     }
   }
 };
@@ -135,6 +205,6 @@ export default {
 }
 
 .content {
-  height: calc(100% - 44px);
+  height: calc(100% - 44px - 49px);
 }
 </style>
